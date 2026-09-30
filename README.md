@@ -47,9 +47,14 @@ kernelshark trace.dat
 Сначала создаем сессию и включаем системные вызовы 
 
 ```
-lttng create ls-session
-lttng enable-event --kernel --syscall openat, getdents64, close
+lttng create my-session
+lttng list
+lttng set-session my-session
+lttng enable-channel chan0 -k
+lttng enable-event -k sched_switch -c chan0
+lttng status
 ```
+<img width="595" height="590" alt="lttng-1" src="https://github.com/user-attachments/assets/834b9689-2648-4753-b0e1-e692913c5634" />
 
 Запускаем трассировку
 
@@ -57,15 +62,15 @@ lttng enable-event --kernel --syscall openat, getdents64, close
 lttng start
 ```
 
-После выполняем ls, теперь остается остановить трассировку, просмотреть данные и удалить ее
+После выполняем sleep останавливаем трассировку и смотрим данные, после чего удаляем ее.
 
 ```
 lttng stop
-lttng view
+lttng view | grep sleep
 lttng destroy
 ```
 
-<<Здесь будет пример в виде изображения>>
+<img width="1305" height="139" alt="lttng-2" src="https://github.com/user-attachments/assets/000a3f4b-d58c-456d-97d7-2024c0fc5824" />
 
 #### Пример - пользовательская программа
 
