@@ -1,12 +1,11 @@
-# БАЗОВЫЙ УРОВЕНЬ
 
 `strace` - показывает границу между программой и ядром: все системные вызовы (syscalls), которые делает процесс, и все сигналы, которые он получает.
 
 `ltrace` - показывает вызовы библиотечных функций (malloc, free, strcpy, printf, pthread_create, SSL_read и т.д.) — то, что происходит внутри программы, до того как она обратится к ядру.
 
-1. `strace`
+`perf` — это инструмент, который показывает, на что программа тратит время. Он время от времени «подглядывает», чем занят процессор, и записывает, какая функция сейчас выполняется.
 
-## Примеры решения задач
+1. `strace`
 
 a) Есть программа, которая открывает 3 файла разными способами.
 Мы хотим посмотреть какие методы она выполняет после вызова функций в программе
@@ -179,6 +178,75 @@ main->malloc(200)                                                    = 0x55d48bb
 ```
 
 Команда вывела, что мы выделили 100 байт и адрес начала области выделенной памяти. После пишет вывод из stdout. Далее после free мы видим void - наша память освободилась. После мы еще раз выделили память, то идет выход status 0, следовательно, у нас происходит утечка памяти.
+
+3. `perf`
+
+а) Мы хотим узнать какая из наших функций в программе больше всего использует время и является "горячей"
+
+```C
+#include <stdio.h>
+#include <math.h>
+
+void hot_function(void) {
+    double sum = 0;
+    for (int i = 0; i < 100000000; i++) {
+        sum += sin(i) * cos(i);   
+    }
+    printf("hot: %f\n", sum);
+}
+
+void cold_function(void) {
+    long sum = 0;
+    for (int i = 0; i < 5000000; i++) {   // в 10 раз меньше итераций
+        sum += i * 2;
+    }
+    printf("cold: %ld\n", sum);
+}
+
+int main(void) {
+    for (int i = 0; i < 5; i++) {
+        hot_function();    
+        cold_function();   
+    }
+    return 0;
+}
+```
+
+Далее вызываем запись у perf, указав флаг на то, чтобы он собирал из пользовательского пространста. После выполнения программы вызываем report и смотрим на результат
+
+```bash
+perf record -g --user-callchains ./main
+
+perf report
+
+Samples: 55K of event 'cpu-clock:ppp', Event count (approx.): 13887500000
+  Children      Self  Command  Shared Object      Symbol
++   41,28%    41,28%  main     [kernel.kallsyms]  [k] __softirqentry_text_start
++   20,12%     0,00%  main     libc-2.32.so       [.] __libc_start_main
++   20,12%     0,00%  main     main               [.] main
++   10,86%    10,86%  main     [vboxguest]        [k] vbg_req_perform
++    5,20%     2,44%  main     main               [.] hot_function
++    4,81%     0,00%  main     libm-2.32.so       [.] 0x00007f3adf6e355d
++    4,76%     0,00%  main     libm-2.32.so       [.] 0x00007f3adf6e3f00
++    2,78%     0,00%  main     libm-2.32.so       [.] 0x00007f3adf6e3541
++    2,61%     2,61%  main     [kernel.kallsyms]  [k] finish_task_switch
++    2,07%     0,00%  main     libm-2.32.so       [.] 0x00007f3adf6e38d0
++    2,03%     2,03%  main     libm-2.32.so       [.] 0x000000000003355d
++    1,95%     1,95%  main     [kernel.kallsyms]  [k] _raw_spin_unlock_irqrestore
++    1,87%     1,87%  main     libm-2.32.so       [.] 0x0000000000033f00
++    1,84%     0,00%  main     libm-2.32.so       [.] 0x00007f3adf6e38e4
++    1,47%     0,00%  main     libm-2.32.so       [.] 0x00007f3adf6e38fa
++    1,34%     0,00%  main     libm-2.32.so       [.] 0x00007f3adf6e38d4
++    1,31%     0,00%  main     libm-2.32.so       [.] 0x00007f3adf6e3f04
++    1,22%     1,22%  main     libm-2.32.so       [.] 0x0000000000033541
++    1,19%     0,00%  main     libm-2.32.so       [.] 0x00007f3adf6e3561
++    1,17%     0,00%  main     libm-2.32.so       [.] 0x00007f3adf6e4261
++    1,10%     0,00%  main     libm-2.32.so       [.] 0x00007f3adf6e4253
++    1,09%     0,23%  main     main               [.] cold_function
+```
+
+Children - это сколько времени проведено в функции
+Self - это сколько времени заняли циклы, условия функции
 
 # АРХИВ
 
