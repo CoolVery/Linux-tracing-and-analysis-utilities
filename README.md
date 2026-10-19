@@ -5,6 +5,8 @@
 
 `perf` — это инструмент, который показывает, на что программа тратит время. Он время от времени «подглядывает», чем занят процессор, и записывает, какая функция сейчас выполняется.
 
+`lft` — это продвинутая альтернатива классическому traceroute, которая работает не только на сетевом (IP) уровне, но и на транспортном (TCP/UDP).
+
 1. `strace`
 
 a) Есть программа, которая открывает 3 файла разными способами.
@@ -247,6 +249,60 @@ Samples: 55K of event 'cpu-clock:ppp', Event count (approx.): 13887500000
 
 Children - это сколько времени проведено в функции
 Self - это сколько времени заняли циклы, условия функции
+
+
+4. lft
+
+а) Мы запустили наш сервер и хотим узнать, а какие порты он прослушивает 
+
+Для этого вставим код python, который создаст сервер с прослушиваемыми двумя портами
+
+```bash
+python3 -c "
+import socket, threading
+    def serve(port):
+        s = socket.socket()
+        s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+        s.bind(('127.0.0.1', port))
+        s.listen()
+        while True:
+            c, _ = s.accept()
+            c.send(b'HTTP/1.1 200 OK\r\n\r\n')
+            c.close()
+        threading.Thread(target=serve, args=(8080,), daemon=True).start()
+        serve(9090)
+"
+```
+Открыв вторую консоль мы выполним 3 команды lft
+
+```bash
+sudo lft -T -d 8080 127.0.0.1
+LFT trace started at 19-Oct-26 21:32:43 MSK
+Tracing *......*.....T
+TTL LFT trace to localhost.localdomain (127.0.0.1):8080/tcp
+ 1  [target open] localhost.localdomain (127.0.0.1):8080 0.5/0.1ms
+ 2  [target open] localhost.localdomain (127.0.0.1):8080 0.1ms
+ 3  [target open] localhost.localdomain (127.0.0.1):8080 0.0ms
+ 4  [target open] localhost.localdomain (127.0.0.1):8080 0.1ms
+ 5  [target open] localhost.localdomain (127.0.0.1):8080 0.0ms
+ 6  [target open] localhost.localdomain (127.0.0.1):8080 0.0ms
+LFT trace finished at 19-Oct-26 21:32:44 MSK (0.51s elapsed)
+sudo lft -T -d 9090 127.0.0.1
+LFT trace started at 19-Oct-26 21:32:51 MSK
+Tracing *.....T
+TTL LFT trace to localhost.localdomain (127.0.0.1):9090/tcp
+ 1  [target open] localhost.localdomain (127.0.0.1):9090 0.1ms
+ 2  [target open] localhost.localdomain (127.0.0.1):9090 0.1ms
+LFT trace finished at 19-Oct-26 21:32:51 MSK (0.26s elapsed)
+sudo lft -T -d 80 127.0.0.1
+LFT trace started at 19-Oct-26 21:33:05 MSK
+Tracing ......T
+TTL LFT trace to localhost.localdomain (127.0.0.1):80/tcp
+ 1  [target closed] localhost.localdomain (127.0.0.1):80 0.0ms
+ 2  [target closed] localhost.localdomain (127.0.0.1):80 0.1ms
+LFT trace finished at 19-Oct-26 21:33:05 MSK (0.27s elapsed)
+```
+Как мы видим, lft смог получить ответ не просто от хоста, а именно от порта, как при порте 80 мы ответа не получили
 
 # АРХИВ
 
